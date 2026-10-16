@@ -42,7 +42,17 @@
   .seg button { flex: 1; background: transparent; color: var(--muted); padding: 7px; font-size: 14px; border-radius: 8px; }
   .seg button.on { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
   #destRow { display: none; margin-top: 10px; }
-  #destRow input { width: 100%; }
+  .dest-wrap { display: flex; gap: 8px; }
+  .dest-wrap input { flex: 1; }
+  #heartBtn { background: var(--bg); border: 1px solid var(--line); width: 44px; flex: none; display: grid; place-items: center; color: var(--muted); }
+  #heartBtn.on { color: #e0446a; }
+  #heartBtn svg { width: 22px; height: 22px; }
+  #favs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  #favs:empty { display: none; }
+  .fav { display: inline-flex; align-items: center; background: var(--accent-soft); color: var(--accent); border-radius: 999px; font-size: 14px; font-weight: 600; max-width: 100%; }
+  .fav .pick { background: none; color: inherit; padding: 7px 4px 7px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+  .fav .del { background: none; color: inherit; opacity: .6; padding: 7px 11px 7px 4px; font-size: 16px; line-height: 1; }
+  .fav-label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 12px; }
   .station { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
   .station:first-child { border-top: 0; padding-top: 2px; }
   .price { font-size: 22px; font-weight: 700; min-width: 76px; letter-spacing: -0.02em; }
@@ -95,7 +105,16 @@
     <button id="modeAhead" class="on">Ahead of me</button>
     <button id="modeRoute">To a destination</button>
   </div>
-  <div id="destRow"><input id="dest" placeholder="Destination address or place" autocomplete="off"></div>
+  <div id="destRow">
+    <div class="dest-wrap">
+      <input id="dest" placeholder="Destination address or city" autocomplete="off" enterkeyhint="search">
+      <button id="heartBtn" aria-label="Save to favorites" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.5-9.2C1.2 8.6 3.3 5 6.8 5c2 0 3.4 1.1 5.2 3 1.8-1.9 3.2-3 5.2-3 3.5 0 5.6 3.6 4.3 6.8C19.5 16.4 12 21 12 21z" fill="currentColor"/></svg>
+      </button>
+    </div>
+    <div class="fav-label" id="favLabel">Favorites</div>
+    <div id="favs"></div>
+  </div>
   <button class="primary" id="searchBtn">Find cheapest gas</button>
 </div>
 
@@ -291,6 +310,42 @@ function setMode(m) {
 }
 $('modeAhead').onclick = () => setMode('ahead');
 $('modeRoute').onclick = () => setMode('route');
+
+/* ---------- favorites ---------- */
+function getFavs() { try { return JSON.parse(store.get('favs', '[]')) || []; } catch { return []; } }
+function setFavs(list) { store.set('favs', JSON.stringify(list)); renderFavs(); }
+const norm = s => s.trim().toLowerCase();
+function syncHeart() {
+  const v = $('dest').value.trim();
+  const on = !!v && getFavs().some(f => norm(f) === norm(v));
+  $('heartBtn').classList.toggle('on', on);
+  $('heartBtn').setAttribute('aria-pressed', on);
+}
+function renderFavs() {
+  const list = getFavs();
+  $('favLabel').style.display = list.length ? 'block' : 'none';
+  $('favs').innerHTML = list.map((f, i) =>
+    `<span class="fav"><button class="pick" data-i="${i}">${esc(f)}</button><button class="del" data-i="${i}" aria-label="Remove ${esc(f)}">×</button></span>`
+  ).join('');
+  syncHeart();
+}
+$('heartBtn').onclick = () => {
+  const v = $('dest').value.trim();
+  if (!v) { $('dest').focus(); return; }
+  const list = getFavs();
+  const i = list.findIndex(f => norm(f) === norm(v));
+  if (i >= 0) list.splice(i, 1); else list.unshift(v);
+  setFavs(list);
+};
+$('favs').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const list = getFavs(), i = Number(b.dataset.i);
+  if (b.classList.contains('del')) { list.splice(i, 1); setFavs(list); return; }
+  $('dest').value = list[i]; syncHeart(); search();
+};
+$('dest').addEventListener('input', syncHeart);
+$('dest').addEventListener('keydown', e => { if (e.key === 'Enter') { $('dest').blur(); search(); } });
+renderFavs();
 $('settingsBtn').onclick = () => {
   $('keyInput').value = store.get('key', '');
   $('autoRefresh').checked = store.get('auto', '0') === '1';
