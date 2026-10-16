@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gas Finder">
+<title>Gas Finder</title>
+<style>
+  :root {
+    --bg: #f4f4f1; --card: #ffffff; --text: #16181a; --muted: #6b7075;
+    --line: #e2e2dc; --accent: #0f7a4a; --accent-soft: #e2f3ea; --warn: #b5541c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111314; --card: #1b1e20; --text: #eef0f1; --muted: #9aa0a5;
+      --line: #2b2f32; --accent: #3ccf8a; --accent-soft: #163327; --warn: #f0905a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    padding: env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom)); }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 10px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; }
+  button { font: inherit; border: 0; border-radius: 12px; cursor: pointer; }
+  .icon-btn { background: var(--card); color: var(--text); padding: 8px 12px; border: 1px solid var(--line); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+  .status { display: flex; align-items: center; gap: 14px; }
+  .compass { width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--line);
+    display: grid; place-items: center; flex: none; position: relative; }
+  .compass span { position: absolute; top: 2px; font-size: 10px; color: var(--muted); font-weight: 600; }
+  #arrow { width: 28px; height: 28px; transition: transform .4s ease; }
+  .big { font-size: 20px; font-weight: 650; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  select, input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 10px; min-width: 0; }
+  .row select { flex: 1; }
+  .primary { background: var(--accent); color: #fff; padding: 12px 14px; width: 100%; font-weight: 600; margin-top: 10px; }
+  @media (prefers-color-scheme: dark) { .primary { color: #08140e; } }
+  .seg { display: flex; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 3px; margin-top: 10px; }
+  .seg button { flex: 1; background: transparent; color: var(--muted); padding: 7px; font-size: 14px; border-radius: 8px; }
+  .seg button.on { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+  #destRow { display: none; margin-top: 10px; }
+  #destRow input { width: 100%; }
+  .station { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+  .station:first-child { border-top: 0; padding-top: 2px; }
+  .price { font-size: 22px; font-weight: 700; min-width: 76px; letter-spacing: -0.02em; }
+  .best .price { color: var(--accent); }
+  .tag { display: inline-block; background: var(--accent-soft); color: var(--accent); font-size: 11px;
+    font-weight: 700; padding: 2px 7px; border-radius: 6px; margin-bottom: 2px; text-transform: uppercase; }
+  .info { flex: 1; min-width: 0; }
+  .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .go { background: var(--accent-soft); color: var(--accent); padding: 8px 12px; font-weight: 600; font-size: 14px; text-decoration: none; border-radius: 10px; }
+  .msg { text-align: center; color: var(--muted); padding: 18px 8px; }
+  .err { color: var(--warn); }
+  dialog { border: 1px solid var(--line); border-radius: 16px; background: var(--card); color: var(--text); width: min(420px, 92vw); padding: 18px; }
+  dialog::backdrop { background: rgba(0,0,0,.4); }
+  dialog input { width: 100%; margin: 8px 0 4px; }
+  label { font-size: 14px; font-weight: 600; display: block; margin-top: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Gas Finder</h1>
+  <button class="icon-btn" id="settingsBtn" aria-label="Settings">Settings</button>
+</header>
+
+<div class="card status">
+  <div class="compass"><span>N</span>
+    <svg id="arrow" viewBox="0 0 24 24"><path d="M12 2 L19 21 L12 17 L5 21 Z" fill="currentColor"/></svg>
+  </div>
+  <div>
+    <div class="big" id="dirText">Locating…</div>
+    <div class="muted" id="subText">Allow location access when asked.</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <select id="fuel" aria-label="Fuel type">
+      <option value="REGULAR_UNLEADED">Regular</option>
+      <option value="MIDGRADE">Midgrade</option>
+      <option value="PREMIUM">Premium</option>
+      <option value="DIESEL">Diesel</option>
+    </select>
+    <select id="range" aria-label="Search distance">
+      <option value="3">Next 3 mi</option>
+      <option value="6" selected>Next 6 mi</option>
+      <option value="12">Next 12 mi</option>
+      <option value="25">Next 25 mi</option>
+    </select>
+  </div>
+  <div class="seg" role="tablist">
+    <button id="modeAhead" class="on">Ahead of me</button>
+    <button id="modeRoute">To a destination</button>
+  </div>
+  <div id="destRow"><input id="dest" placeholder="Destination address or place" autocomplete="off"></div>
+  <button class="primary" id="searchBtn">Find cheapest gas</button>
+</div>
+
+<div class="card" id="results"><div class="msg">Results will appear here.</div></div>
+
+<dialog id="settings">
+  <h2 style="margin:0 0 4px;font-size:18px">Settings</h2>
+  <div class="muted">Your key is saved only on this device.</div>
+  <label for="keyInput">Google API key</label>
+  <input id="keyInput" type="password" autocomplete="off" placeholder="Paste your key">
+  <label><input type="checkbox" id="autoRefresh" style="width:auto;margin-right:6px">Auto-refresh every 2 miles driven</label>
+  <div class="row" style="margin-top:14px">
+    <button class="icon-btn" id="cancelSettings" style="flex:1">Cancel</button>
+    <button class="primary" id="saveSettings" style="flex:1;margin:0">Save</button>
+  </div>
+</dialog>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+};
+
+let pos = null, prevPos = null, heading = null, mode = 'ahead', lastSearchAt = null, busy = false;
+
+/* ---------- geometry ---------- */
+const R = 3958.8; // earth radius, miles
+const rad = d => d * Math.PI / 180, deg = r => r * 180 / Math.PI;
+function distMi(a, b) {
+  const dLat = rad(b.lat - a.lat), dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat/2)**2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function bearing(a, b) {
+  const y = Math.sin(rad(b.lng - a.lng)) * Math.cos(rad(b.lat));
+  const x = Math.cos(rad(a.lat)) * Math.sin(rad(b.lat)) - Math.sin(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.cos(rad(b.lng - a.lng));
+  return (deg(Math.atan2(y, x)) + 360) % 360;
+}
+function offset(p, brg, mi) {
+  const d = mi / R, b = rad(brg), la = rad(p.lat), lo = rad(p.lng);
+  const la2 = Math.asin(Math.sin(la) * Math.cos(d) + Math.cos(la) * Math.sin(d) * Math.cos(b));
+  const lo2 = lo + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(la), Math.cos(d) - Math.sin(la) * Math.sin(la2));
+  return { lat: deg(la2), lng: deg(lo2) };
+}
+const angleDiff = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+const compassName = h => ['N','NE','E','SE','S','SW','W','NW'][Math.round(h / 45) % 8];
+const fullName = { N:'North', NE:'Northeast', E:'East', SE:'Southeast', S:'South', SW:'Southwest', W:'West', NW:'Northwest' };
+
+/* ---------- location tracking ---------- */
+function onPos(p) {
+  const cur = { lat: p.coords.latitude, lng: p.coords.longitude };
+  const speedMph = p.coords.speed != null && p.coords.speed >= 0 ? p.coords.speed * 2.237 : null;
+  let h = (p.coords.heading != null && !isNaN(p.coords.heading) && (speedMph == null || speedMph > 3)) ? p.coords.heading : null;
+  if (h == null && prevPos && distMi(prevPos, cur) > 0.01) h = bearing(prevPos, cur); // fallback: from last two fixes
+  if (!prevPos || distMi(prevPos, cur) > 0.01) prevPos = cur;
+  pos = cur;
+  if (h != null) heading = h;
+
+  if (heading != null && (speedMph == null || speedMph > 3)) {
+    const c = compassName(heading);
+    $('dirText').textContent = 'Heading ' + fullName[c];
+    $('arrow').style.transform = `rotate(${heading}deg)`;
+    $('subText').textContent = speedMph != null ? `${Math.round(speedMph)} mph · ${Math.round(heading)}°` : `${Math.round(heading)}°`;
+  } else {
+    $('dirText').textContent = 'Not moving';
+    $('subText').textContent = 'Searching all directions until you start driving.';
+  }
+
+  if (store.get('auto', '0') === '1' && lastSearchAt && distMi(lastSearchAt, cur) >= 2 && !busy) search();
+}
+function onPosErr(e) {
+  $('dirText').textContent = 'Location unavailable';
+  $('subText').innerHTML = `<span class="err">${e.code === 1 ? 'Location permission was denied. Allow it in Settings → Privacy → Location Services → Safari Websites.' : e.message}</span>`;
+}
+if ('geolocation' in navigator) {
+  navigator.geolocation.watchPosition(onPos, onPosErr, { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 });
+} else onPosErr({ message: 'This browser does not support location.' });
+
+// keep the screen awake while the app is open
+let wakeLock = null;
+async function keepAwake() { try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+keepAwake();
+
+/* ---------- Google APIs ---------- */
+const FIELDS = 'places.id,places.displayName,places.formattedAddress,places.location,places.fuelOptions';
+async function gpost(url, body, fieldMask) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': store.get('key', ''), 'X-Goog-FieldMask': fieldMask },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error?.message || `Request failed (${res.status})`);
+  return data;
+}
+async function stationsAhead(rangeMi) {
+  const moving = heading != null;
+  // center the search circle part-way ahead so most results are in front of you
+  const center = moving ? offset(pos, heading, rangeMi / 2) : pos;
+  const radiusMi = moving ? rangeMi * 0.6 : rangeMi;
+  const data = await gpost('https://places.googleapis.com/v1/places:searchNearby', {
+    includedTypes: ['gas_station'], maxResultCount: 20, rankPreference: 'DISTANCE',
+    locationRestriction: { circle: { center: { latitude: center.lat, longitude: center.lng }, radius: Math.min(radiusMi * 1609.34, 50000) } }
+  }, FIELDS);
+  let list = data.places || [];
+  if (moving) list = list.filter(p => {
+    const loc = { lat: p.location.latitude, lng: p.location.longitude };
+    const d = distMi(pos, loc);
+    return d <= rangeMi && (d < 0.25 || angleDiff(bearing(pos, loc), heading) <= 45);
+  });
+  return list;
+}
+async function stationsOnRoute(dest) {
+  const r = await gpost('https://routes.googleapis.com/directions/v2:computeRoutes', {
+    origin: { location: { latLng: { latitude: pos.lat, longitude: pos.lng } } },
+    destination: { address: dest }, travelMode: 'DRIVE'
+  }, 'routes.polyline.encodedPolyline');
+  const poly = r.routes?.[0]?.polyline?.encodedPolyline;
+  if (!poly) throw new Error('No driving route found to that destination.');
+  const data = await gpost('https://places.googleapis.com/v1/places:searchText', {
+    textQuery: 'gas station', includedType: 'gas_station', maxResultCount: 20,
+    searchAlongRouteParameters: { polyline: { encodedPolyline: poly } }
+  }, FIELDS);
+  return data.places || [];
+}
+
+/* ---------- search + render ---------- */
+function priceOf(place, type) {
+  const fp = place.fuelOptions?.fuelPrices?.find(f => f.type === type);
+  if (!fp?.price) return null;
+  return { value: Number(fp.price.units || 0) + (fp.price.nanos || 0) / 1e9, updated: fp.updateTime };
+}
+function ago(iso) {
+  if (!iso) return '';
+  const h = (Date.now() - new Date(iso)) / 36e5;
+  return h < 1 ? 'updated <1h ago' : h < 48 ? `updated ${Math.round(h)}h ago` : `updated ${Math.round(h / 24)}d ago`;
+}
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+async function search() {
+  const box = $('results');
+  if (!store.get('key', '')) { $('settings').showModal(); return; }
+  if (!pos) { box.innerHTML = '<div class="msg">Waiting for your location…</div>'; return; }
+  const dest = $('dest').value.trim();
+  if (mode === 'route' && !dest) { box.innerHTML = '<div class="msg">Enter a destination first.</div>'; return; }
+
+  busy = true; $('searchBtn').disabled = true;
+  box.innerHTML = '<div class="msg">Searching…</div>';
+  try {
+    const range = Number($('range').value), fuel = $('fuel').value;
+    const places = mode === 'route' ? await stationsOnRoute(dest) : await stationsAhead(range);
+    lastSearchAt = { ...pos };
+    const rows = places.map(p => {
+      const loc = { lat: p.location.latitude, lng: p.location.longitude };
+      return { name: p.displayName?.text, addr: p.formattedAddress, loc, dist: distMi(pos, loc), price: priceOf(p, fuel) };
+    });
+    const priced = rows.filter(r => r.price).sort((a, b) => a.price.value - b.price.value || a.dist - b.dist);
+    const unpriced = rows.filter(r => !r.price).sort((a, b) => a.dist - b.dist);
+
+    if (!rows.length) { box.innerHTML = '<div class="msg">No gas stations found. Try a longer distance.</div>'; return; }
+    let html = priced.map((r, i) => `
+      <div class="station ${i === 0 ? 'best' : ''}">
+        <div class="price">$${r.price.value.toFixed(2)}</div>
+        <div class="info">
+          ${i === 0 ? '<span class="tag">Cheapest</span>' : ''}
+          <div class="name">${esc(r.name)}</div>
+          <div class="muted">${r.dist.toFixed(1)} mi · ${ago(r.price.updated)}</div>
+        </div>
+        <a class="go" href="https://maps.apple.com/?daddr=${r.loc.lat},${r.loc.lng}&dirflg=d">Go</a>
+      </div>`).join('');
+    if (!priced.length) html = '<div class="msg">Stations found, but none have a posted price for this fuel type.</div>';
+    if (unpriced.length) html += `<div class="muted" style="padding-top:10px;border-top:1px solid var(--line)">${unpriced.length} more station${unpriced.length > 1 ? 's' : ''} nearby without a posted price.</div>`;
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = `<div class="msg err">${esc(e.message)}</div>`;
+  } finally {
+    busy = false; $('searchBtn').disabled = false;
+  }
+}
+
+/* ---------- UI wiring ---------- */
+$('searchBtn').onclick = search;
+$('fuel').value = store.get('fuel', 'REGULAR_UNLEADED');
+$('fuel').onchange = () => store.set('fuel', $('fuel').value);
+function setMode(m) {
+  mode = m;
+  $('modeAhead').classList.toggle('on', m === 'ahead');
+  $('modeRoute').classList.toggle('on', m === 'route');
+  $('destRow').style.display = m === 'route' ? 'block' : 'none';
+  $('range').disabled = m === 'route';
+}
+$('modeAhead').onclick = () => setMode('ahead');
+$('modeRoute').onclick = () => setMode('route');
+$('settingsBtn').onclick = () => {
+  $('keyInput').value = store.get('key', '');
+  $('autoRefresh').checked = store.get('auto', '0') === '1';
+  $('settings').showModal();
+};
+$('cancelSettings').onclick = () => $('settings').close();
+$('saveSettings').onclick = () => {
+  store.set('key', $('keyInput').value.trim());
+  store.set('auto', $('autoRefresh').checked ? '1' : '0');
+  $('settings').close();
+};
+if (!store.get('key', '')) setTimeout(() => $('settings').showModal(), 400);
+</script>
+</body>
+</html>
