@@ -116,6 +116,7 @@
     <div id="favs"></div>
   </div>
   <button class="primary" id="searchBtn">Find cheapest gas</button>
+  <div class="muted" id="quota" style="text-align:center;margin-top:8px"></div>
 </div>
 
 <div class="card" id="results"><div class="msg">Results will appear here.</div></div>
@@ -260,12 +261,14 @@ async function search() {
   const dest = $('dest').value.trim();
   if (mode === 'route' && !dest) { box.innerHTML = '<div class="msg">Enter a destination first.</div>'; return; }
 
+  if (usedThisMonth() >= LIMIT) { box.innerHTML = `<div class="msg err">You've used all ${LIMIT} searches this month. They reset on the 1st.</div>`; return; }
   busy = true; $('searchBtn').disabled = true;
   box.innerHTML = '<div class="msg">Searching…</div>';
   try {
     const range = Number($('range').value), fuel = $('fuel').value;
     const places = mode === 'route' ? await stationsOnRoute(dest) : await stationsAhead(range);
     lastSearchAt = { ...pos };
+    countSearch();
     const rows = places.map(p => {
       const loc = { lat: p.location.latitude, lng: p.location.longitude };
       return { name: p.displayName?.text, addr: p.formattedAddress, loc, dist: distMi(pos, loc), price: priceOf(p, fuel) };
@@ -295,6 +298,18 @@ async function search() {
 }
 
 /* ---------- UI wiring ---------- */
+/* ---------- monthly search limit (per device) ---------- */
+const LIMIT = 50;
+const monthKey = () => 'uses-' + new Date().toISOString().slice(0, 7);
+const usedThisMonth = () => Number(store.get(monthKey(), '0')) || 0;
+function countSearch() { store.set(monthKey(), String(usedThisMonth() + 1)); showQuota(); }
+function showQuota() {
+  const left = Math.max(0, LIMIT - usedThisMonth());
+  $('quota').textContent = `${left} of ${LIMIT} searches left this month`;
+  $('quota').classList.toggle('err', left <= 5);
+}
+showQuota();
+
 $('searchBtn').onclick = search;
 $('fuel').value = store.get('fuel', 'REGULAR_UNLEADED');
 $('fuel').onchange = () => store.set('fuel', $('fuel').value);
