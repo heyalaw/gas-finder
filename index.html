@@ -125,7 +125,6 @@
   <div class="muted">Your key is saved only on this device.</div>
   <label for="keyInput">Google API key</label>
   <input id="keyInput" type="password" autocomplete="off" placeholder="Paste your key">
-  <label><input type="checkbox" id="autoRefresh" style="width:auto;margin-right:6px">Auto-refresh every 2 miles driven</label>
   <div class="row" style="margin-top:14px">
     <button class="icon-btn" id="cancelSettings" style="flex:1">Cancel</button>
     <button class="primary" id="saveSettings" style="flex:1;margin:0">Save</button>
@@ -183,8 +182,6 @@ function onPos(p) {
     $('dirText').textContent = 'Not moving';
     $('subText').textContent = 'Searching all directions until you start driving.';
   }
-
-  if (store.get('auto', '0') === '1' && lastSearchAt && distMi(lastSearchAt, cur) >= 2 && !busy) search();
 }
 function onPosErr(e) {
   $('dirText').textContent = 'Location unavailable';
@@ -348,13 +345,11 @@ $('dest').addEventListener('keydown', e => { if (e.key === 'Enter') { $('dest').
 renderFavs();
 $('settingsBtn').onclick = () => {
   $('keyInput').value = store.get('key', '');
-  $('autoRefresh').checked = store.get('auto', '0') === '1';
   $('settings').showModal();
 };
 $('cancelSettings').onclick = () => $('settings').close();
 $('saveSettings').onclick = () => {
   store.set('key', $('keyInput').value.trim());
-  store.set('auto', $('autoRefresh').checked ? '1' : '0');
   $('settings').close();
 };
 if (!store.get('key', '')) setTimeout(() => $('settings').showModal(), 400);
